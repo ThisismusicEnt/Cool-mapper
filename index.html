@@ -128,6 +128,13 @@
         .sidebar-button:hover {
             border-color: var(--glow-color);
         }
+        .project-item {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+        }
+        .project-item:hover {
+            border-color: var(--glow-color);
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden p-2">
@@ -138,20 +145,19 @@
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-bold text-gray-100">Projects</h2>
                 </div>
-                <div id="project-list" class="space-y-2 flex-grow"></div>
-                <div class="space-y-2">
+                <div id="project-list" class="space-y-2 flex-grow overflow-y-auto"></div>
+                <div class="space-y-2 flex-shrink-0">
                     <button id="save-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                         <span>Save Project</span>
                     </button>
-                    <button id="load-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        <span>Load Project</span>
-                    </button>
-                    <input type="file" id="load-project-input" class="hidden" accept=".json">
                     <button id="new-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         <span>New Project</span>
+                    </button>
+                    <button id="export-projects-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span>Export All</span>
                     </button>
                 </div>
             </aside>
@@ -164,9 +170,7 @@
                         <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                     <div class="flex-1 text-center absolute w-full left-0 pointer-events-none">
-                         <h1 id="project-title" class="text-xl font-semibold text-gray-100 inline-block cursor-pointer">Project Mapper</h1>
-                         <input type="text" id="project-title-input" class="hidden bg-gray-700 text-white text-center text-xl font-semibold rounded-md">
-                         <button id="confirm-title-btn" class="hidden bg-green-600 text-white p-1 rounded-md ml-2">✓</button>
+                         <h1 id="project-title" class="text-xl font-semibold text-gray-100 inline-block">Project Mapper</h1>
                     </div>
                     <div class="flex items-center space-x-2 z-10">
                         <button id="help-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Help</button>
@@ -197,10 +201,7 @@
 
     <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
         <div id="modal" class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4 border border-gray-700">
-            <div id="modal-content">
-                <p id="modal-message" class="text-gray-200 mb-6"></p>
-                <div id="modal-buttons" class="flex justify-end space-x-4"></div>
-            </div>
+            <div id="modal-content"></div>
         </div>
     </div>
 
@@ -217,18 +218,16 @@
             const sidebarToggle = document.getElementById('sidebar-toggle');
             const newProjectBtn = document.getElementById('new-project-btn');
             const saveProjectBtn = document.getElementById('save-project-btn');
-            const loadProjectBtn = document.getElementById('load-project-btn');
-            const loadProjectInput = document.getElementById('load-project-input');
+            const projectList = document.getElementById('project-list');
             const modalBackdrop = document.getElementById('modal-backdrop');
             const modalContent = document.getElementById('modal-content');
             const menuIcon = document.getElementById('menu-icon');
             const closeIcon = document.getElementById('close-icon');
             const projectTitle = document.getElementById('project-title');
-            const projectTitleInput = document.getElementById('project-title-input');
-            const confirmTitleBtn = document.getElementById('confirm-title-btn');
             const helpBtn = document.getElementById('help-btn');
             const importBtn = document.getElementById('import-btn');
             const importFile = document.getElementById('import-file');
+            const exportProjectsBtn = document.getElementById('export-projects-btn');
 
             let nodes = [];
             let connectors = [];
@@ -242,6 +241,7 @@
             let selectedNode1 = null;
             let tool = 'select';
             let activeNodeForContent = null;
+            let currentProjectId = null;
 
             function showModal(htmlContent) {
                 modalContent.innerHTML = htmlContent;
@@ -517,15 +517,52 @@
             }
 
             newProjectBtn.addEventListener('click', () => {
-                showConfirm('Are you sure you want to start a new project? Any unsaved changes will be lost.', () => {
-                    clearCanvas();
-                    createNode({ x: 200, y: 150, title: "My New Project" });
-                });
+                clearCanvas();
+                currentProjectId = 'project-' + Date.now();
+                projectTitle.textContent = "Untitled Project";
+                createNode({ x: 200, y: 150, title: "Start Here" });
+                autoSave();
             });
 
             saveProjectBtn.addEventListener('click', () => {
+                openSaveModal();
+            });
+
+            function openSaveModal() {
+                const modalHtml = `
+                    <h3 class="text-lg font-bold mb-4 text-white">Save Project</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="project-name-input" class="block text-sm font-medium text-gray-300 mb-1">Project Name:</label>
+                            <input type="text" id="project-name-input" class="w-full bg-gray-700 text-white rounded-md p-2" value="${projectTitle.textContent}">
+                        </div>
+                        <div class="flex justify-end space-x-4">
+                            <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors">Cancel</button>
+                            <button id="modal-save-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors">Save</button>
+                        </div>
+                    </div>
+                `;
+                showModal(modalHtml);
+
+                document.getElementById('modal-cancel-btn').onclick = closeModal;
+                document.getElementById('modal-save-btn').onclick = () => {
+                    const projectName = document.getElementById('project-name-input').value.trim();
+                    if (projectName) {
+                        projectTitle.textContent = projectName;
+                        saveProjectToStorage(projectName);
+                        closeModal();
+                        showAlert('Project saved!');
+                    } else {
+                        showAlert('Please enter a project name.');
+                    }
+                };
+            }
+
+            function saveProjectToStorage(projectName) {
+                const projects = JSON.parse(localStorage.getItem('projectMapperProjects')) || [];
                 const projectData = {
-                    projectName: projectTitle.textContent,
+                    id: currentProjectId,
+                    name: projectName,
                     nodes: nodes.map(node => ({
                         id: node.id,
                         x: node.x,
@@ -536,36 +573,21 @@
                     })),
                     connectors: connectors.map(c => ({ from: c.from.id, to: c.to.id }))
                 };
-                const dataStr = JSON.stringify(projectData, null, 2);
-                const blob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${projectTitle.textContent.replace(/\s+/g, '-')}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-            });
 
-            loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
-            loadProjectInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const projectData = JSON.parse(event.target.result);
-                        loadProject(projectData);
-                    } catch (error) {
-                        showAlert('Error: Could not load the project file. It may be corrupted.');
-                    }
-                };
-                reader.readAsText(file);
-                loadProjectInput.value = '';
-            });
+                const existingProjectIndex = projects.findIndex(p => p.id === currentProjectId);
+                if (existingProjectIndex > -1) {
+                    projects[existingProjectIndex] = projectData;
+                } else {
+                    projects.push(projectData);
+                }
+                localStorage.setItem('projectMapperProjects', JSON.stringify(projects));
+                renderProjectList();
+            }
 
             function loadProject(projectData) {
                 clearCanvas();
-                projectTitle.textContent = projectData.projectName || 'Project Mapper';
+                projectTitle.textContent = projectData.name || 'Project Mapper';
+                currentProjectId = projectData.id;
                 projectData.nodes.forEach(nodeData => createNode(nodeData));
                 projectData.connectors.forEach(connectorData => {
                     const fromNode = nodes.find(n => n.id === connectorData.from);
@@ -614,25 +636,6 @@
                     createNode({ x, y, title: line.trim() });
                 });
             }
-
-            projectTitle.addEventListener('click', () => {
-                projectTitle.classList.add('hidden');
-                projectTitleInput.classList.remove('hidden');
-                confirmTitleBtn.classList.remove('hidden');
-                projectTitleInput.value = projectTitle.textContent;
-                projectTitleInput.focus();
-            });
-
-            confirmTitleBtn.addEventListener('click', () => {
-                projectTitle.textContent = projectTitleInput.value;
-                projectTitle.classList.remove('hidden');
-                projectTitleInput.classList.add('hidden');
-                confirmTitleBtn.classList.add('hidden');
-            });
-
-            projectTitleInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') confirmTitleBtn.click();
-            });
             
             helpBtn.addEventListener('click', () => {
                 const helpText = `
@@ -644,7 +647,7 @@
                         <li><b>Connect Nodes:</b> Click the small circle on the right side of a node, then click on another node to create a connection.</li>
                         <li><b>Pan the Canvas:</b> Click the hand icon in the toolbar, then click and drag the canvas to move your view.</li>
                         <li><b>Zoom:</b> Use the slider in the toolbar or your mouse wheel to zoom in and out.</li>
-                        <li><b>Save/Load:</b> Use the buttons in the sidebar to save your project as a file or load a previously saved project.</li>
+                        <li><b>Save/Load:</b> Use the buttons in the sidebar to save your project to the list or load from it.</li>
                     </ul>
                 `;
                 showAlert(helpText);
@@ -690,9 +693,84 @@
                     closeModal();
                 };
             }
-            
-            createNode({ x: 200, y: 150, title: "Welcome to Project Mapper!" });
-            createNode({ x: 500, y: 250, title: "You can now save & load!" });
+
+            function renderProjectList() {
+                const projects = JSON.parse(localStorage.getItem('projectMapperProjects')) || [];
+                projectList.innerHTML = '';
+                projects.forEach(project => {
+                    const projectEl = document.createElement('div');
+                    projectEl.className = 'project-item p-2 rounded-lg flex justify-between items-center cursor-pointer';
+                    projectEl.innerHTML = `
+                        <span class="truncate">${project.name}</span>
+                        <button class="delete-project-btn text-red-400 hover:text-red-300">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    `;
+                    projectEl.querySelector('.truncate').addEventListener('click', () => {
+                        loadProject(project);
+                    });
+                    projectEl.querySelector('.delete-project-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteProject(project.id);
+                    });
+                    projectList.appendChild(projectEl);
+                });
+            }
+
+            function deleteProject(projectId) {
+                let projects = JSON.parse(localStorage.getItem('projectMapperProjects')) || [];
+                projects = projects.filter(p => p.id !== projectId);
+                localStorage.setItem('projectMapperProjects', JSON.stringify(projects));
+                renderProjectList();
+            }
+
+            function autoSave() {
+                if (!currentProjectId) return;
+                const projectData = {
+                    id: currentProjectId,
+                    name: projectTitle.textContent,
+                    nodes: nodes.map(node => ({
+                        id: node.id,
+                        x: node.x,
+                        y: node.y,
+                        title: node.el.querySelector('.title').innerText,
+                        contentHTML: node.el.querySelector('.content-area').innerHTML,
+                        borderColor: node.borderColor
+                    })),
+                    connectors: connectors.map(c => ({ from: c.from.id, to: c.to.id }))
+                };
+                localStorage.setItem('autoSave', JSON.stringify(projectData));
+            }
+
+            exportProjectsBtn.addEventListener('click', () => {
+                const projects = localStorage.getItem('projectMapperProjects');
+                if (projects) {
+                    const blob = new Blob([projects], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'project-mapper-backup.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    showAlert('No projects to export.');
+                }
+            });
+
+            function init() {
+                renderProjectList();
+                const autoSavedProject = JSON.parse(localStorage.getItem('autoSave'));
+                if (autoSavedProject) {
+                    loadProject(autoSavedProject);
+                } else {
+                    currentProjectId = 'project-' + Date.now();
+                    createNode({ x: 200, y: 150, title: "Welcome to Project Mapper!" });
+                    createNode({ x: 500, y: 250, title: "You can now save & load!" });
+                }
+                setInterval(autoSave, 5000);
+            }
+
+            init();
         });
     </script>
 </body>
