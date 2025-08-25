@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Mapper</title>
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap)" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-color: #6366f1; /* Indigo 500 */
-            --background-start: #111827; /* Gray 900 */
+            --glow-color: #818cf8; /* Indigo 400 for glow */
+            --background-start: #000000; /* Sleek Black */
             --background-end: #000000; /* Black */
-            --surface-color: #1f2937; /* Gray 800 */
+            --surface-color: rgba(26, 26, 26, 0.7); /* Darker Grey with transparency for frost */
             --text-color: #d1d5db; /* Gray 300 */
             --border-color: #4b5563; /* Gray 600 */
         }
@@ -22,14 +23,31 @@
         }
         .sidebar {
             transition: transform 0.3s ease-in-out;
+            position: absolute;
+            height: 100%;
+            z-index: 40;
+            background-color: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        #sidebar-toggle {
+            transition: transform 0.3s ease-in-out;
+        }
+        #sidebar-toggle.open {
+            transform: translateX(16rem);
         }
         .node {
             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
             cursor: grab;
-            border: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border: 3px solid var(--border-color); /* Increased border thickness */
+            border-radius: 0.5rem;
         }
         .node.selected {
-            box-shadow: 0 0 0 3px var(--primary-color);
+            box-shadow: 0 0 15px var(--glow-color);
             z-index: 10;
         }
         .connector {
@@ -37,10 +55,12 @@
             stroke-width: 2;
             fill: none;
             pointer-events: stroke;
+            transition: all 0.2s ease-in-out;
         }
         .connector:hover, .connector.selected {
-            stroke: var(--primary-color);
+            stroke: var(--glow-color);
             stroke-width: 3;
+            filter: drop-shadow(0 0 5px var(--glow-color));
         }
         .trash-icon {
             cursor: pointer;
@@ -51,12 +71,25 @@
             display: flex;
         }
 
-        /* Animated Glowing Border */
+        #canvas-container {
+            --grid-color-minor: rgba(255, 255, 255, 0.05);
+            --grid-color-major: rgba(255, 255, 255, 0.1);
+            background-color: var(--background-start);
+            background-image:
+                linear-gradient(var(--grid-color-minor) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color-minor) 1px, transparent 1px),
+                linear-gradient(var(--grid-color-major) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color-major) 1px, transparent 1px);
+            background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+            background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+        }
+
         @keyframes rotate {
             100% {
                 transform: rotate(1turn);
             }
         }
+
         .animated-border-container {
             position: relative;
             z-index: 0;
@@ -88,55 +121,70 @@
             background: var(--background-start);
             border-radius: 0.5rem;
         }
+        .sidebar-button {
+            background-color: var(--surface-color) !important;
+            border: 1px solid var(--border-color);
+        }
+        .sidebar-button:hover {
+            border-color: var(--glow-color);
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden p-2">
     <div class="animated-border-container w-full h-full">
-        <div class="w-full h-full flex rounded-lg overflow-hidden">
+        <div class="w-full h-full flex rounded-lg overflow-hidden relative">
             <!-- Sidebar -->
-            <aside id="sidebar" class="sidebar bg-gray-900/80 backdrop-blur-sm w-64 h-full shadow-lg p-4 absolute md:relative transform -translate-x-full md:translate-x-0 z-30 border-r border-gray-700 flex flex-col">
-                <h2 class="text-2xl font-bold mb-4 text-gray-100">Projects</h2>
-                <div id="project-list" class="space-y-2 flex-grow">
-                    <!-- Project items will be added here -->
+            <aside id="sidebar" class="sidebar w-64 h-full shadow-lg p-4 border-r border-gray-700 flex flex-col flex-shrink-0 sidebar-hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-100">Projects</h2>
                 </div>
+                <div id="project-list" class="space-y-2 flex-grow"></div>
                 <div class="space-y-2">
-                    <button id="save-project-btn" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors">Save Project</button>
-                    <button id="load-project-btn" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">Load Project</button>
+                    <button id="save-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                        <span>Save Project</span>
+                    </button>
+                    <button id="load-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span>Load Project</span>
+                    </button>
                     <input type="file" id="load-project-input" class="hidden" accept=".json">
-                    <button id="new-project-btn" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors">New Project</button>
+                    <button id="new-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>New Project</span>
+                    </button>
                 </div>
             </aside>
 
             <!-- Main Content -->
             <main class="flex-1 flex flex-col relative">
-                <!-- Header -->
-                <header class="bg-gray-900/80 backdrop-blur-sm shadow-md p-2 flex items-center justify-between z-20 border-b border-gray-700">
-                    <div class="flex items-center">
-                        <button id="sidebar-toggle" class="md:hidden p-2 rounded-md text-gray-400 hover:bg-gray-700">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-                        </button>
-                        <h1 class="text-xl font-semibold ml-2 text-gray-100">Project Mapper</h1>
+                <header class="bg-gray-900/80 backdrop-blur-sm shadow-md p-2 flex items-center justify-between z-20 border-b border-gray-700 relative">
+                    <button id="sidebar-toggle" class="p-2 rounded-md text-gray-400 hover:bg-gray-700 z-50">
+                        <svg id="menu-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                    <div class="flex-1 text-center absolute w-full left-0 pointer-events-none">
+                         <h1 id="project-title" class="text-xl font-semibold text-gray-100 inline-block cursor-pointer">Project Mapper</h1>
+                         <input type="text" id="project-title-input" class="hidden bg-gray-700 text-white text-center text-xl font-semibold rounded-md">
+                         <button id="confirm-title-btn" class="hidden bg-green-600 text-white p-1 rounded-md ml-2">✓</button>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 z-10">
+                        <button id="help-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Help</button>
                         <button id="add-node-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm">Add Node</button>
                         <input type="file" id="import-file" class="hidden">
                         <button id="import-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Import Text</button>
                     </div>
                 </header>
 
-                <!-- Canvas -->
-                <div id="canvas-container" class="flex-1 bg-gray-900 overflow-hidden relative">
+                <div id="canvas-container" class="flex-1 overflow-hidden relative">
                     <div id="canvas" class="absolute top-0 left-0 w-full h-full" style="transform-origin: 0 0;">
-                        <svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none">
-                            <!-- Connectors will be drawn here -->
-                        </svg>
+                        <svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none"></svg>
                     </div>
                 </div>
 
-                <!-- Toolbar -->
                 <div class="absolute bottom-4 right-4 bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-lg p-2 flex flex-col items-center space-y-2 z-20 border border-gray-700">
                     <button id="pan-tool" class="p-2 rounded-md text-gray-300 hover:bg-gray-700">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 3a1 1 0 011 1v1.586l1.707-1.707a1 1 0 011.414 1.414L12.414 7H14a1 1 0 110 2h-1.586l1.707 1.707a1 1 0 01-1.414 1.414L11 10.414V12a1 1 0 11-2 0v-1.586l-1.707 1.707a1 1 0 01-1.414-1.414L7.586 9H6a1 1 0 110-2h1.586L5.879 5.293a1 1 0 011.414-1.414L9 5.586V4a1 1 0 011-1z"/></svg>
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 8.5a1.5 1.5 0 00-1.5-1.5h-2.5a1 1 0 00-1 1v5a1 1 0 001 1h2.5a1.5 1.5 0 001.5-1.5v-3.5zM6.5 7A1.5 1.5 0 018 5.5h1.5a1 1 0 011 1v5a1 1 0 01-1 1H8A1.5 1.5 0 016.5 11V7zM4 5.5A1.5 1.5 0 015.5 4h.5a1 1 0 011 1v6a1 1 0 01-1 1h-.5A1.5 1.5 0 014 10.5V5.5z"></path></svg>
                     </button>
                     <button id="select-tool" class="p-2 rounded-md bg-indigo-600 text-white">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.586l4.293-4.293a1 1 0 011.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 011.414-1.414L10 12.586z"/></svg>
@@ -147,12 +195,20 @@
         </div>
     </div>
 
+    <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div id="modal" class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4 border border-gray-700">
+            <div id="modal-content">
+                <p id="modal-message" class="text-gray-200 mb-6"></p>
+                <div id="modal-buttons" class="flex justify-end space-x-4"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM Element Selection ---
             const canvasContainer = document.getElementById('canvas-container');
             const canvas = document.getElementById('canvas');
-            const connectorSvg = document.getElementById('connector-svg');
+            let connectorSvg = document.getElementById('connector-svg');
             const addNodeBtn = document.getElementById('add-node-btn');
             const zoomSlider = document.getElementById('zoom-slider');
             const panTool = document.getElementById('pan-tool');
@@ -163,8 +219,17 @@
             const saveProjectBtn = document.getElementById('save-project-btn');
             const loadProjectBtn = document.getElementById('load-project-btn');
             const loadProjectInput = document.getElementById('load-project-input');
+            const modalBackdrop = document.getElementById('modal-backdrop');
+            const modalContent = document.getElementById('modal-content');
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+            const projectTitle = document.getElementById('project-title');
+            const projectTitleInput = document.getElementById('project-title-input');
+            const confirmTitleBtn = document.getElementById('confirm-title-btn');
+            const helpBtn = document.getElementById('help-btn');
+            const importBtn = document.getElementById('import-btn');
+            const importFile = document.getElementById('import-file');
 
-            // --- State Management ---
             let nodes = [];
             let connectors = [];
             let scale = 1;
@@ -175,9 +240,29 @@
             let activeNode = null;
             let offsetX, offsetY;
             let selectedNode1 = null;
-            let tool = 'select'; // 'select' or 'pan'
+            let tool = 'select';
+            let activeNodeForContent = null;
 
-            // --- Tool Selection ---
+            function showModal(htmlContent) {
+                modalContent.innerHTML = htmlContent;
+                modalBackdrop.classList.remove('hidden');
+            }
+
+            function closeModal() {
+                modalBackdrop.classList.add('hidden');
+            }
+
+            function showAlert(message) {
+                const alertHtml = `
+                    <p class="text-gray-200 mb-6">${message}</p>
+                    <div class="flex justify-end space-x-4">
+                        <button id="modal-ok-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors">OK</button>
+                    </div>
+                `;
+                showModal(alertHtml);
+                document.getElementById('modal-ok-btn').onclick = closeModal;
+            }
+
             panTool.addEventListener('click', () => {
                 tool = 'pan';
                 canvasContainer.style.cursor = 'grab';
@@ -192,7 +277,11 @@
                 panTool.classList.remove('bg-indigo-600', 'text-white');
             });
 
-            // --- Panning & Zooming ---
+            const stopPanning = () => {
+                isPanning = false;
+                if (tool === 'pan') canvasContainer.style.cursor = 'grab';
+            };
+
             canvasContainer.addEventListener('mousedown', (e) => {
                 if (tool === 'pan' || e.button === 1) {
                     isPanning = true;
@@ -208,16 +297,18 @@
                     updateCanvasTransform();
                 }
             });
-            const stopPanning = () => {
-                isPanning = false;
-                if (tool === 'pan') canvasContainer.style.cursor = 'grab';
-            };
             canvasContainer.addEventListener('mouseup', stopPanning);
             canvasContainer.addEventListener('mouseleave', stopPanning);
+
+            function updateCanvasTransform() {
+                canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            }
+            
             zoomSlider.addEventListener('input', (e) => {
                 scale = parseFloat(e.target.value);
                 updateCanvasTransform();
             });
+
             canvasContainer.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 const zoomIntensity = 0.1;
@@ -233,33 +324,38 @@
                 zoomSlider.value = scale;
                 updateCanvasTransform();
             });
-            function updateCanvasTransform() {
-                canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-            }
 
-            // --- Node Management ---
             addNodeBtn.addEventListener('click', () => createNode({}));
 
-            function createNode({ id = 'node-' + Date.now(), x = 100, y = 100, title = 'New Node', contentHTML = '' }) {
+            function createNode({ id = 'node-' + Date.now(), x = 100, y = 100, title = 'New Node', contentHTML = '', borderColor = '#4b5563' }) {
                 const nodeEl = document.createElement('div');
                 nodeEl.id = id;
-                nodeEl.className = 'node absolute bg-gray-800 p-4 rounded-lg shadow-md w-48';
+                nodeEl.className = 'node absolute p-4 shadow-md w-48';
                 nodeEl.style.left = `${x}px`;
                 nodeEl.style.top = `${y}px`;
+                nodeEl.style.borderColor = borderColor;
                 
                 nodeEl.innerHTML = `
                     <div contenteditable="true" class="font-semibold mb-2 text-gray-100 title">${title}</div>
                     <div class="text-sm content-area">${contentHTML}</div>
                     <input type="file" class="hidden file-input" multiple>
                     <div class="flex justify-between items-center mt-2">
-                        <button class="add-content-btn text-xs text-indigo-400 hover:underline">Add Content</button>
-                        <button class="delete-node-btn text-xs text-red-400 hover:underline">Delete</button>
+                        <button class="add-content-btn text-indigo-400 hover:text-indigo-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        </button>
+                        <label class="color-picker-label cursor-pointer">
+                            <svg class="w-5 h-5 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0010.586 5H8a2 2 0 00-2 2v12z"></path></svg>
+                            <input type="color" class="node-color-picker hidden" value="${borderColor}">
+                        </label>
+                        <button class="delete-node-btn text-red-400 hover:text-red-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
                     </div>
                     <div class="connector-point absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-500 rounded-full border-2 border-gray-800 cursor-pointer hover:bg-indigo-500"></div>
                 `;
                 
                 canvas.appendChild(nodeEl);
-                const node = { id, el: nodeEl, x, y, connectors: [] };
+                const node = { id, el: nodeEl, x, y, connectors: [], borderColor };
                 nodes.push(node);
                 setupNodeEventListeners(node);
                 return node;
@@ -267,8 +363,16 @@
 
             function setupNodeEventListeners(node) {
                 const nodeEl = node.el;
+                const colorPickerInput = nodeEl.querySelector('.node-color-picker');
+
+                colorPickerInput.addEventListener('input', (e) => {
+                    const newColor = e.target.value;
+                    node.el.style.borderColor = newColor;
+                    node.borderColor = newColor;
+                });
+
                 nodeEl.addEventListener('mousedown', (e) => {
-                    if (tool === 'select' && !e.target.classList.contains('connector-point')) {
+                    if (tool === 'select' && !e.target.classList.contains('connector-point') && e.target.contentEditable !== 'true') {
                         activeNode = node;
                         offsetX = e.clientX - node.x * scale - panX;
                         offsetY = e.clientY - node.y * scale - panY;
@@ -307,7 +411,8 @@
                     }
                 });
                 nodeEl.querySelector('.add-content-btn').addEventListener('click', () => {
-                    nodeEl.querySelector('.file-input').click();
+                    activeNodeForContent = node;
+                    openAddContentModal();
                 });
                 nodeEl.querySelector('.file-input').addEventListener('change', (e) => handleFileUpload(e, node));
             }
@@ -348,7 +453,6 @@
                 }
             }
 
-            // --- Connector Management ---
             function createConnector(fromNode, toNode) {
                 const id = `connector-${fromNode.id}-to-${toNode.id}`;
                 if (connectors.some(c => c.id === id)) return;
@@ -368,15 +472,16 @@
 
             function drawConnectors() {
                 connectorSvg.innerHTML = '';
-                const svgNS = "[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)";
+                const svgNS = "http://www.w3.org/2000/svg";
                 connectors.forEach(c => {
-                    if (!c.from || !c.to) return; // Skip if a node is missing
+                    if (!c.from || !c.to) return;
                     const p1 = getConnectorPoint(c.from, 'right');
                     const p2 = getConnectorPoint(c.to, 'left');
                     const path = document.createElementNS(svgNS, 'path');
                     const controlPointOffset = Math.max(50, Math.abs(p2.x - p1.x) * 0.3);
                     path.setAttribute('d', `M ${p1.x} ${p1.y} C ${p1.x + controlPointOffset} ${p1.y}, ${p2.x - controlPointOffset} ${p2.y}, ${p2.x} ${p2.y}`);
                     path.classList.add('connector');
+                    
                     const trashIconWrapper = document.createElementNS(svgNS, 'foreignObject');
                     const midX = (p1.x + p2.x) / 2;
                     const midY = (p1.y + p2.y) / 2;
@@ -385,11 +490,14 @@
                     trashIconWrapper.setAttribute('width', 24);
                     trashIconWrapper.setAttribute('height', 24);
                     trashIconWrapper.style.pointerEvents = 'all';
+                    
                     const trashButtonContainer = document.createElement('div');
-                    trashButtonContainer.setAttribute('xmlns', '[http://www.w3.org/1999/xhtml](http://www.w3.org/1999/xhtml)');
+                    trashButtonContainer.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
                     trashButtonContainer.innerHTML = `<button class="trash-icon bg-gray-700 p-1 rounded-full shadow-md hover:bg-red-500 items-center justify-center"><svg class="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></button>`;
                     trashButtonContainer.onclick = () => deleteConnector(c);
+                    
                     trashIconWrapper.appendChild(trashButtonContainer);
+                    
                     const g = document.createElementNS(svgNS, 'g');
                     g.classList.add('connector-wrapper');
                     g.appendChild(path);
@@ -408,34 +516,32 @@
                 if (node.connectors.length > 0) drawConnectors();
             }
 
-            // --- Project Management (Save, Load, New) ---
             newProjectBtn.addEventListener('click', () => {
-                if (confirm('Are you sure you want to start a new project? Any unsaved changes will be lost.')) {
+                showConfirm('Are you sure you want to start a new project? Any unsaved changes will be lost.', () => {
                     clearCanvas();
                     createNode({ x: 200, y: 150, title: "My New Project" });
-                }
+                });
             });
 
             saveProjectBtn.addEventListener('click', () => {
                 const projectData = {
+                    projectName: projectTitle.textContent,
                     nodes: nodes.map(node => ({
                         id: node.id,
                         x: node.x,
                         y: node.y,
                         title: node.el.querySelector('.title').innerText,
-                        contentHTML: node.el.querySelector('.content-area').innerHTML
+                        contentHTML: node.el.querySelector('.content-area').innerHTML,
+                        borderColor: node.borderColor
                     })),
-                    connectors: connectors.map(c => ({
-                        from: c.from.id,
-                        to: c.to.id
-                    }))
+                    connectors: connectors.map(c => ({ from: c.from.id, to: c.to.id }))
                 };
                 const dataStr = JSON.stringify(projectData, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'project-map.json';
+                a.download = `${projectTitle.textContent.replace(/\s+/g, '-')}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
             });
@@ -450,52 +556,52 @@
                         const projectData = JSON.parse(event.target.result);
                         loadProject(projectData);
                     } catch (error) {
-                        alert('Error: Could not load the project file. It may be corrupted.');
-                        console.error("Failed to parse project file:", error);
+                        showAlert('Error: Could not load the project file. It may be corrupted.');
                     }
                 };
                 reader.readAsText(file);
-                loadProjectInput.value = ''; // Reset input
+                loadProjectInput.value = '';
             });
 
             function loadProject(projectData) {
                 clearCanvas();
-                // First, create all nodes
-                projectData.nodes.forEach(nodeData => {
-                    createNode(nodeData);
-                });
-                // Then, create all connectors
+                projectTitle.textContent = projectData.projectName || 'Project Mapper';
+                projectData.nodes.forEach(nodeData => createNode(nodeData));
                 projectData.connectors.forEach(connectorData => {
                     const fromNode = nodes.find(n => n.id === connectorData.from);
                     const toNode = nodes.find(n => n.id === connectorData.to);
-                    if (fromNode && toNode) {
-                        createConnector(fromNode, toNode);
-                    }
+                    if (fromNode && toNode) createConnector(fromNode, toNode);
                 });
             }
 
             function clearCanvas() {
                 canvas.innerHTML = `<svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none"></svg>`;
+                connectorSvg = document.getElementById('connector-svg');
                 nodes = [];
                 connectors = [];
             }
 
-            // --- Sidebar and Text Import ---
-            sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
-            const importBtn = document.getElementById('import-btn');
-            const importFile = document.getElementById('import-file');
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('sidebar-hidden');
+                sidebarToggle.classList.toggle('open');
+                menuIcon.classList.toggle('hidden');
+                closeIcon.classList.toggle('hidden');
+            });
+
             importBtn.addEventListener('click', () => importFile.click());
             importFile.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 if (file.type.startsWith('image/')) {
-                    alert("Image import is a premium feature coming soon!");
+                    showAlert("Image import is a premium feature coming soon!");
                 } else {
                     const reader = new FileReader();
                     reader.onload = (event) => generateMapFromText(event.target.result);
                     reader.readAsText(file);
                 }
+                importFile.value = '';
             });
+
             function generateMapFromText(text) {
                 const lines = text.split('\n').filter(line => line.trim() !== '');
                 const centerX = (canvasContainer.offsetWidth / 2 - panX) / scale;
@@ -508,8 +614,83 @@
                     createNode({ x, y, title: line.trim() });
                 });
             }
+
+            projectTitle.addEventListener('click', () => {
+                projectTitle.classList.add('hidden');
+                projectTitleInput.classList.remove('hidden');
+                confirmTitleBtn.classList.remove('hidden');
+                projectTitleInput.value = projectTitle.textContent;
+                projectTitleInput.focus();
+            });
+
+            confirmTitleBtn.addEventListener('click', () => {
+                projectTitle.textContent = projectTitleInput.value;
+                projectTitle.classList.remove('hidden');
+                projectTitleInput.classList.add('hidden');
+                confirmTitleBtn.classList.add('hidden');
+            });
+
+            projectTitleInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') confirmTitleBtn.click();
+            });
             
-            // --- Initial Setup ---
+            helpBtn.addEventListener('click', () => {
+                const helpText = `
+                    <h3 class="text-lg font-bold mb-4 text-white">How to Use Project Mapper</h3>
+                    <ul class="list-disc list-inside space-y-2 text-left">
+                        <li><b>Add Nodes:</b> Click the "Add Node" button to create a new node on the canvas.</li>
+                        <li><b>Move Nodes:</b> Click and drag any node to reposition it.</li>
+                        <li><b>Edit Content:</b> Click on the title or content area of a node to edit the text.</li>
+                        <li><b>Connect Nodes:</b> Click the small circle on the right side of a node, then click on another node to create a connection.</li>
+                        <li><b>Pan the Canvas:</b> Click the hand icon in the toolbar, then click and drag the canvas to move your view.</li>
+                        <li><b>Zoom:</b> Use the slider in the toolbar or your mouse wheel to zoom in and out.</li>
+                        <li><b>Save/Load:</b> Use the buttons in the sidebar to save your project as a file or load a previously saved project.</li>
+                    </ul>
+                `;
+                showAlert(helpText);
+            });
+
+            function openAddContentModal() {
+                const modalHtml = `
+                    <h3 class="text-lg font-bold mb-4 text-white">Add Content</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <button id="modal-upload-btn" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors">Upload File</button>
+                        </div>
+                        <div>
+                            <label for="link-input" class="block text-sm font-medium text-gray-300 mb-1">Or add a link:</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="link-input" class="flex-grow bg-gray-700 text-white rounded-md p-2" placeholder="https://example.com">
+                                <button id="modal-link-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showModal(modalHtml);
+
+                document.getElementById('modal-upload-btn').onclick = () => {
+                    if (activeNodeForContent) {
+                        activeNodeForContent.el.querySelector('.file-input').click();
+                    }
+                    closeModal();
+                };
+
+                document.getElementById('modal-link-btn').onclick = () => {
+                    const linkInput = document.getElementById('link-input');
+                    const url = linkInput.value.trim();
+                    if (url && activeNodeForContent) {
+                        const contentArea = activeNodeForContent.el.querySelector('.content-area');
+                        const linkEl = document.createElement('a');
+                        linkEl.href = url;
+                        linkEl.textContent = url;
+                        linkEl.className = 'block mt-2 text-sm text-blue-400 hover:underline';
+                        linkEl.target = '_blank';
+                        contentArea.appendChild(linkEl);
+                    }
+                    closeModal();
+                };
+            }
+            
             createNode({ x: 200, y: 150, title: "Welcome to Project Mapper!" });
             createNode({ x: 500, y: 250, title: "You can now save & load!" });
         });
