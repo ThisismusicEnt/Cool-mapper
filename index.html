@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Mapper</title>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap)" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6366f1; /* Indigo 500 */
+            --background-start: #111827; /* Gray 900 */
+            --background-end: #000000; /* Black */
+            --surface-color: #1f2937; /* Gray 800 */
+            --text-color: #d1d5db; /* Gray 300 */
+            --border-color: #4b5563; /* Gray 600 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+            background: var(--background-end);
+        }
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .node {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: grab;
+            border: 1px solid var(--border-color);
+        }
+        .node.selected {
+            box-shadow: 0 0 0 3px var(--primary-color);
+            z-index: 10;
+        }
+        .connector {
+            stroke: var(--border-color);
+            stroke-width: 2;
+            fill: none;
+            pointer-events: stroke;
+        }
+        .connector:hover, .connector.selected {
+            stroke: var(--primary-color);
+            stroke-width: 3;
+        }
+        .trash-icon {
+            cursor: pointer;
+            display: none;
+            pointer-events: all;
+        }
+        .connector-wrapper:hover .trash-icon {
+            display: flex;
+        }
+
+        /* Animated Glowing Border */
+        @keyframes rotate {
+            100% {
+                transform: rotate(1turn);
+            }
+        }
+        .animated-border-container {
+            position: relative;
+            z-index: 0;
+            overflow: hidden;
+            padding: 3px;
+            border-radius: 0.5rem;
+        }
+        .animated-border-container::before {
+            content: '';
+            position: absolute;
+            z-index: -2;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(
+                #fd004c, #fe9000, #fff020, #3edf4b, #3363ff, #b102b7, #fd004c
+            );
+            animation: rotate 4s linear infinite;
+        }
+        .animated-border-container::after {
+            content: '';
+            position: absolute;
+            z-index: -1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-start);
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden p-2">
+    <div class="animated-border-container w-full h-full">
+        <div class="w-full h-full flex rounded-lg overflow-hidden">
+            <!-- Sidebar -->
+            <aside id="sidebar" class="sidebar bg-gray-900/80 backdrop-blur-sm w-64 h-full shadow-lg p-4 absolute md:relative transform -translate-x-full md:translate-x-0 z-30 border-r border-gray-700 flex flex-col">
+                <h2 class="text-2xl font-bold mb-4 text-gray-100">Projects</h2>
+                <div id="project-list" class="space-y-2 flex-grow">
+                    <!-- Project items will be added here -->
+                </div>
+                <div class="space-y-2">
+                    <button id="save-project-btn" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors">Save Project</button>
+                    <button id="load-project-btn" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">Load Project</button>
+                    <input type="file" id="load-project-input" class="hidden" accept=".json">
+                    <button id="new-project-btn" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors">New Project</button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 flex flex-col relative">
+                <!-- Header -->
+                <header class="bg-gray-900/80 backdrop-blur-sm shadow-md p-2 flex items-center justify-between z-20 border-b border-gray-700">
+                    <div class="flex items-center">
+                        <button id="sidebar-toggle" class="md:hidden p-2 rounded-md text-gray-400 hover:bg-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                        </button>
+                        <h1 class="text-xl font-semibold ml-2 text-gray-100">Project Mapper</h1>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="add-node-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm">Add Node</button>
+                        <input type="file" id="import-file" class="hidden">
+                        <button id="import-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Import Text</button>
+                    </div>
+                </header>
+
+                <!-- Canvas -->
+                <div id="canvas-container" class="flex-1 bg-gray-900 overflow-hidden relative">
+                    <div id="canvas" class="absolute top-0 left-0 w-full h-full" style="transform-origin: 0 0;">
+                        <svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none">
+                            <!-- Connectors will be drawn here -->
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Toolbar -->
+                <div class="absolute bottom-4 right-4 bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-lg p-2 flex flex-col items-center space-y-2 z-20 border border-gray-700">
+                    <button id="pan-tool" class="p-2 rounded-md text-gray-300 hover:bg-gray-700">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 3a1 1 0 011 1v1.586l1.707-1.707a1 1 0 011.414 1.414L12.414 7H14a1 1 0 110 2h-1.586l1.707 1.707a1 1 0 01-1.414 1.414L11 10.414V12a1 1 0 11-2 0v-1.586l-1.707 1.707a1 1 0 01-1.414-1.414L7.586 9H6a1 1 0 110-2h1.586L5.879 5.293a1 1 0 011.414-1.414L9 5.586V4a1 1 0 011-1z"/></svg>
+                    </button>
+                    <button id="select-tool" class="p-2 rounded-md bg-indigo-600 text-white">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.586l4.293-4.293a1 1 0 011.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 011.414-1.414L10 12.586z"/></svg>
+                    </button>
+                    <input type="range" id="zoom-slider" min="0.2" max="2" step="0.1" value="1" class="w-24">
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element Selection ---
+            const canvasContainer = document.getElementById('canvas-container');
+            const canvas = document.getElementById('canvas');
+            const connectorSvg = document.getElementById('connector-svg');
+            const addNodeBtn = document.getElementById('add-node-btn');
+            const zoomSlider = document.getElementById('zoom-slider');
+            const panTool = document.getElementById('pan-tool');
+            const selectTool = document.getElementById('select-tool');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const newProjectBtn = document.getElementById('new-project-btn');
+            const saveProjectBtn = document.getElementById('save-project-btn');
+            const loadProjectBtn = document.getElementById('load-project-btn');
+            const loadProjectInput = document.getElementById('load-project-input');
+
+            // --- State Management ---
+            let nodes = [];
+            let connectors = [];
+            let scale = 1;
+            let panX = 0;
+            let panY = 0;
+            let isPanning = false;
+            let startPanX, startPanY;
+            let activeNode = null;
+            let offsetX, offsetY;
+            let selectedNode1 = null;
+            let tool = 'select'; // 'select' or 'pan'
+
+            // --- Tool Selection ---
+            panTool.addEventListener('click', () => {
+                tool = 'pan';
+                canvasContainer.style.cursor = 'grab';
+                panTool.classList.add('bg-indigo-600', 'text-white');
+                selectTool.classList.remove('bg-indigo-600', 'text-white');
+            });
+
+            selectTool.addEventListener('click', () => {
+                tool = 'select';
+                canvasContainer.style.cursor = 'default';
+                selectTool.classList.add('bg-indigo-600', 'text-white');
+                panTool.classList.remove('bg-indigo-600', 'text-white');
+            });
+
+            // --- Panning & Zooming ---
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if (tool === 'pan' || e.button === 1) {
+                    isPanning = true;
+                    startPanX = e.clientX - panX;
+                    startPanY = e.clientY - panY;
+                    canvasContainer.style.cursor = 'grabbing';
+                }
+            });
+            canvasContainer.addEventListener('mousemove', (e) => {
+                if (isPanning) {
+                    panX = e.clientX - startPanX;
+                    panY = e.clientY - startPanY;
+                    updateCanvasTransform();
+                }
+            });
+            const stopPanning = () => {
+                isPanning = false;
+                if (tool === 'pan') canvasContainer.style.cursor = 'grab';
+            };
+            canvasContainer.addEventListener('mouseup', stopPanning);
+            canvasContainer.addEventListener('mouseleave', stopPanning);
+            zoomSlider.addEventListener('input', (e) => {
+                scale = parseFloat(e.target.value);
+                updateCanvasTransform();
+            });
+            canvasContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomIntensity = 0.1;
+                const wheel = e.deltaY < 0 ? 1 : -1;
+                const zoom = Math.exp(wheel * zoomIntensity);
+                const newScale = Math.max(0.2, Math.min(2, scale * zoom));
+                const rect = canvasContainer.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                panX = mouseX - (mouseX - panX) * (newScale / scale);
+                panY = mouseY - (mouseY - panY) * (newScale / scale);
+                scale = newScale;
+                zoomSlider.value = scale;
+                updateCanvasTransform();
+            });
+            function updateCanvasTransform() {
+                canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            }
+
+            // --- Node Management ---
+            addNodeBtn.addEventListener('click', () => createNode({}));
+
+            function createNode({ id = 'node-' + Date.now(), x = 100, y = 100, title = 'New Node', contentHTML = '' }) {
+                const nodeEl = document.createElement('div');
+                nodeEl.id = id;
+                nodeEl.className = 'node absolute bg-gray-800 p-4 rounded-lg shadow-md w-48';
+                nodeEl.style.left = `${x}px`;
+                nodeEl.style.top = `${y}px`;
+                
+                nodeEl.innerHTML = `
+                    <div contenteditable="true" class="font-semibold mb-2 text-gray-100 title">${title}</div>
+                    <div class="text-sm content-area">${contentHTML}</div>
+                    <input type="file" class="hidden file-input" multiple>
+                    <div class="flex justify-between items-center mt-2">
+                        <button class="add-content-btn text-xs text-indigo-400 hover:underline">Add Content</button>
+                        <button class="delete-node-btn text-xs text-red-400 hover:underline">Delete</button>
+                    </div>
+                    <div class="connector-point absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-500 rounded-full border-2 border-gray-800 cursor-pointer hover:bg-indigo-500"></div>
+                `;
+                
+                canvas.appendChild(nodeEl);
+                const node = { id, el: nodeEl, x, y, connectors: [] };
+                nodes.push(node);
+                setupNodeEventListeners(node);
+                return node;
+            }
+
+            function setupNodeEventListeners(node) {
+                const nodeEl = node.el;
+                nodeEl.addEventListener('mousedown', (e) => {
+                    if (tool === 'select' && !e.target.classList.contains('connector-point')) {
+                        activeNode = node;
+                        offsetX = e.clientX - node.x * scale - panX;
+                        offsetY = e.clientY - node.y * scale - panY;
+                        nodeEl.style.cursor = 'grabbing';
+                        nodeEl.classList.add('selected');
+                    }
+                });
+                document.addEventListener('mousemove', (e) => {
+                    if (activeNode) {
+                        activeNode.x = (e.clientX - offsetX - panX) / scale;
+                        activeNode.y = (e.clientY - offsetY - panY) / scale;
+                        activeNode.el.style.left = `${activeNode.x}px`;
+                        activeNode.el.style.top = `${activeNode.y}px`;
+                        updateConnectorsForNode(activeNode);
+                    }
+                });
+                document.addEventListener('mouseup', () => {
+                    if (activeNode) {
+                        activeNode.el.style.cursor = 'grab';
+                        activeNode.el.classList.remove('selected');
+                        activeNode = null;
+                    }
+                });
+                nodeEl.querySelector('.delete-node-btn').addEventListener('click', () => deleteNode(node));
+                nodeEl.querySelector('.connector-point').addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    if (tool === 'select') {
+                        if (!selectedNode1) {
+                            selectedNode1 = node;
+                            node.el.classList.add('selected');
+                        } else if (selectedNode1 !== node) {
+                            createConnector(selectedNode1, node);
+                            selectedNode1.el.classList.remove('selected');
+                            selectedNode1 = null;
+                        }
+                    }
+                });
+                nodeEl.querySelector('.add-content-btn').addEventListener('click', () => {
+                    nodeEl.querySelector('.file-input').click();
+                });
+                nodeEl.querySelector('.file-input').addEventListener('change', (e) => handleFileUpload(e, node));
+            }
+
+            function deleteNode(nodeToDelete) {
+                const connectorsToRemove = [...nodeToDelete.connectors];
+                connectorsToRemove.forEach(c => deleteConnector(c));
+                nodes = nodes.filter(n => n.id !== nodeToDelete.id);
+                nodeToDelete.el.remove();
+            }
+
+            function handleFileUpload(event, node) {
+                const files = event.target.files;
+                const contentArea = node.el.querySelector('.content-area');
+                for (const file of files) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        let contentEl;
+                        if (file.type.startsWith('image/')) {
+                            contentEl = document.createElement('img');
+                            contentEl.src = e.target.result;
+                            contentEl.className = 'mt-2 rounded-md max-w-full';
+                        } else if (file.type.startsWith('video/')) {
+                            contentEl = document.createElement('video');
+                            contentEl.src = e.target.result;
+                            contentEl.controls = true;
+                            contentEl.className = 'mt-2 rounded-md max-w-full';
+                        } else {
+                            contentEl = document.createElement('a');
+                            contentEl.href = e.target.result;
+                            contentEl.textContent = file.name;
+                            contentEl.className = 'block mt-2 text-sm text-blue-400 hover:underline';
+                            contentEl.target = '_blank';
+                        }
+                        contentArea.appendChild(contentEl);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            // --- Connector Management ---
+            function createConnector(fromNode, toNode) {
+                const id = `connector-${fromNode.id}-to-${toNode.id}`;
+                if (connectors.some(c => c.id === id)) return;
+                const connector = { id, from: fromNode, to: toNode };
+                connectors.push(connector);
+                fromNode.connectors.push(connector);
+                toNode.connectors.push(connector);
+                drawConnectors();
+            }
+            
+            function deleteConnector(connectorToDelete) {
+                connectors = connectors.filter(c => c.id !== connectorToDelete.id);
+                if (connectorToDelete.from) connectorToDelete.from.connectors = connectorToDelete.from.connectors.filter(c => c.id !== connectorToDelete.id);
+                if (connectorToDelete.to) connectorToDelete.to.connectors = connectorToDelete.to.connectors.filter(c => c.id !== connectorToDelete.id);
+                drawConnectors();
+            }
+
+            function drawConnectors() {
+                connectorSvg.innerHTML = '';
+                const svgNS = "[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)";
+                connectors.forEach(c => {
+                    if (!c.from || !c.to) return; // Skip if a node is missing
+                    const p1 = getConnectorPoint(c.from, 'right');
+                    const p2 = getConnectorPoint(c.to, 'left');
+                    const path = document.createElementNS(svgNS, 'path');
+                    const controlPointOffset = Math.max(50, Math.abs(p2.x - p1.x) * 0.3);
+                    path.setAttribute('d', `M ${p1.x} ${p1.y} C ${p1.x + controlPointOffset} ${p1.y}, ${p2.x - controlPointOffset} ${p2.y}, ${p2.x} ${p2.y}`);
+                    path.classList.add('connector');
+                    const trashIconWrapper = document.createElementNS(svgNS, 'foreignObject');
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    trashIconWrapper.setAttribute('x', midX - 12);
+                    trashIconWrapper.setAttribute('y', midY - 12);
+                    trashIconWrapper.setAttribute('width', 24);
+                    trashIconWrapper.setAttribute('height', 24);
+                    trashIconWrapper.style.pointerEvents = 'all';
+                    const trashButtonContainer = document.createElement('div');
+                    trashButtonContainer.setAttribute('xmlns', '[http://www.w3.org/1999/xhtml](http://www.w3.org/1999/xhtml)');
+                    trashButtonContainer.innerHTML = `<button class="trash-icon bg-gray-700 p-1 rounded-full shadow-md hover:bg-red-500 items-center justify-center"><svg class="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></button>`;
+                    trashButtonContainer.onclick = () => deleteConnector(c);
+                    trashIconWrapper.appendChild(trashButtonContainer);
+                    const g = document.createElementNS(svgNS, 'g');
+                    g.classList.add('connector-wrapper');
+                    g.appendChild(path);
+                    g.appendChild(trashIconWrapper);
+                    connectorSvg.appendChild(g);
+                });
+            }
+
+            function getConnectorPoint(node, side = 'right') {
+                const x = side === 'right' ? node.x + node.el.offsetWidth : node.x;
+                const y = node.y + node.el.offsetHeight / 2;
+                return { x, y };
+            }
+
+            function updateConnectorsForNode(node) {
+                if (node.connectors.length > 0) drawConnectors();
+            }
+
+            // --- Project Management (Save, Load, New) ---
+            newProjectBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to start a new project? Any unsaved changes will be lost.')) {
+                    clearCanvas();
+                    createNode({ x: 200, y: 150, title: "My New Project" });
+                }
+            });
+
+            saveProjectBtn.addEventListener('click', () => {
+                const projectData = {
+                    nodes: nodes.map(node => ({
+                        id: node.id,
+                        x: node.x,
+                        y: node.y,
+                        title: node.el.querySelector('.title').innerText,
+                        contentHTML: node.el.querySelector('.content-area').innerHTML
+                    })),
+                    connectors: connectors.map(c => ({
+                        from: c.from.id,
+                        to: c.to.id
+                    }))
+                };
+                const dataStr = JSON.stringify(projectData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'project-map.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
+            loadProjectInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const projectData = JSON.parse(event.target.result);
+                        loadProject(projectData);
+                    } catch (error) {
+                        alert('Error: Could not load the project file. It may be corrupted.');
+                        console.error("Failed to parse project file:", error);
+                    }
+                };
+                reader.readAsText(file);
+                loadProjectInput.value = ''; // Reset input
+            });
+
+            function loadProject(projectData) {
+                clearCanvas();
+                // First, create all nodes
+                projectData.nodes.forEach(nodeData => {
+                    createNode(nodeData);
+                });
+                // Then, create all connectors
+                projectData.connectors.forEach(connectorData => {
+                    const fromNode = nodes.find(n => n.id === connectorData.from);
+                    const toNode = nodes.find(n => n.id === connectorData.to);
+                    if (fromNode && toNode) {
+                        createConnector(fromNode, toNode);
+                    }
+                });
+            }
+
+            function clearCanvas() {
+                canvas.innerHTML = `<svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none"></svg>`;
+                nodes = [];
+                connectors = [];
+            }
+
+            // --- Sidebar and Text Import ---
+            sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
+            const importBtn = document.getElementById('import-btn');
+            const importFile = document.getElementById('import-file');
+            importBtn.addEventListener('click', () => importFile.click());
+            importFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.type.startsWith('image/')) {
+                    alert("Image import is a premium feature coming soon!");
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = (event) => generateMapFromText(event.target.result);
+                    reader.readAsText(file);
+                }
+            });
+            function generateMapFromText(text) {
+                const lines = text.split('\n').filter(line => line.trim() !== '');
+                const centerX = (canvasContainer.offsetWidth / 2 - panX) / scale;
+                const centerY = (canvasContainer.offsetHeight / 2 - panY) / scale;
+                const radius = Math.min(250, canvasContainer.offsetWidth / 3 / scale);
+                lines.forEach((line, index) => {
+                    const angle = (index / lines.length) * 2 * Math.PI;
+                    const x = centerX + radius * Math.cos(angle);
+                    const y = centerY + radius * Math.sin(angle);
+                    createNode({ x, y, title: line.trim() });
+                });
+            }
+            
+            // --- Initial Setup ---
+            createNode({ x: 200, y: 150, title: "Welcome to Project Mapper!" });
+            createNode({ x: 500, y: 250, title: "You can now save & load!" });
+        });
+    </script>
+</body>
+</html>
