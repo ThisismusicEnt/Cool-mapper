@@ -2,201 +2,153 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Project Mapper</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #6366f1; /* Indigo 500 */
-            --glow-color: #818cf8; /* Indigo 400 for glow */
-            --background-start: #000000; /* Sleek Black */
-            --background-end: #000000; /* Black */
-            --surface-color: rgba(26, 26, 26, 0.7); /* Darker Grey with transparency for frost */
-            --text-color: #d1d5db; /* Gray 300 */
-            --border-color: #4b5563; /* Gray 600 */
+            --primary-color: #6D28D9; /* Violet 700 */
+            --glow-color: #8B5CF6;   /* Violet 500 */
+            --background-color: #111111;
+            --surface-color: #1E1E1E;
+            --text-color: #E5E7EB;    /* Gray 200 */
+            --border-color: #4B5563;  /* Gray 600 */
         }
         body {
             font-family: 'Inter', sans-serif;
             color: var(--text-color);
-            background: var(--background-end);
+            background: var(--background-color);
+            overflow: hidden;
+            touch-action: none;
+        }
+        #canvas-container {
+            background-color: var(--background-color);
+            background-image: radial-gradient(rgba(255,255,255,0.1) 1px, transparent 0);
+            background-size: 20px 20px;
         }
         .sidebar {
             transition: transform 0.3s ease-in-out;
             position: absolute;
             height: 100%;
             z-index: 40;
-            background-color: rgba(17, 24, 39, 0.8);
+            background-color: rgba(30, 30, 30, 0.8);
             backdrop-filter: blur(10px);
         }
         .sidebar-hidden {
             transform: translateX(-100%);
         }
-        #sidebar-toggle {
-            transition: transform 0.3s ease-in-out;
-        }
-        #sidebar-toggle.open {
-            transform: translateX(16rem);
-        }
         .node {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            transition: box-shadow 0.2s ease-in-out;
             cursor: grab;
             background-color: var(--surface-color);
-            backdrop-filter: blur(12px);
-            border: 3px solid var(--border-color); /* Increased border thickness */
+            border: 1px solid var(--border-color);
             border-radius: 0.5rem;
+            position: absolute;
+            overflow: visible; /* Allow icons to overflow */
+            min-width: 150px;
+            min-height: 60px;
         }
         .node.selected {
-            box-shadow: 0 0 15px var(--glow-color);
+            box-shadow: 0 0 0 2px var(--glow-color);
             z-index: 10;
+        }
+        .node-controls {
+            display: none;
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2a2a2a;
+            border-radius: 0.5rem;
+            padding: 4px;
+            gap: 4px;
+        }
+        .node.selected .node-controls {
+            display: flex;
         }
         .connector {
             stroke: var(--border-color);
             stroke-width: 2;
             fill: none;
             pointer-events: stroke;
-            transition: all 0.2s ease-in-out;
         }
-        .connector:hover, .connector.selected {
+        .connector:hover {
             stroke: var(--glow-color);
-            stroke-width: 3;
-            filter: drop-shadow(0 0 5px var(--glow-color));
         }
-        .trash-icon {
-            cursor: pointer;
-            display: none;
-            pointer-events: all;
-        }
-        .connector-wrapper:hover .trash-icon {
-            display: flex;
-        }
-
-        #canvas-container {
-            --grid-color-minor: rgba(255, 255, 255, 0.05);
-            --grid-color-major: rgba(255, 255, 255, 0.1);
-            background-color: var(--background-start);
-            background-image:
-                linear-gradient(var(--grid-color-minor) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-color-minor) 1px, transparent 1px),
-                linear-gradient(var(--grid-color-major) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-color-major) 1px, transparent 1px);
-            background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
-            background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
-        }
-
-        @keyframes rotate {
-            100% {
-                transform: rotate(1turn);
-            }
-        }
-
-        .animated-border-container {
-            position: relative;
-            z-index: 0;
-            overflow: hidden;
-            padding: 3px;
-            border-radius: 0.5rem;
-        }
-        .animated-border-container::before {
-            content: '';
+        .resize-handle {
             position: absolute;
-            z-index: -2;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: conic-gradient(
-                #fd004c, #fe9000, #fff020, #3edf4b, #3363ff, #b102b7, #fd004c
-            );
-            animation: rotate 4s linear infinite;
-        }
-        .animated-border-container::after {
-            content: '';
-            position: absolute;
-            z-index: -1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--background-start);
-            border-radius: 0.5rem;
-        }
-        .sidebar-button {
-            background-color: var(--surface-color) !important;
-            border: 1px solid var(--border-color);
-        }
-        .sidebar-button:hover {
-            border-color: var(--glow-color);
-        }
-        .project-item {
-            background-color: var(--surface-color);
-            border: 1px solid var(--border-color);
-        }
-        .project-item:hover {
-            border-color: var(--glow-color);
+            width: 12px;
+            height: 12px;
+            cursor: nwse-resize;
+            border-right: 2px solid var(--border-color);
+            border-bottom: 2px solid var(--border-color);
+            bottom: 0px;
+            right: 0px;
         }
     </style>
 </head>
-<body class="h-screen w-screen overflow-hidden p-2">
-    <div class="animated-border-container w-full h-full">
-        <div class="w-full h-full flex rounded-lg overflow-hidden relative">
-            <!-- Sidebar -->
-            <aside id="sidebar" class="sidebar w-64 h-full shadow-lg p-4 border-r border-gray-700 flex flex-col flex-shrink-0 sidebar-hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-100">Projects</h2>
-                </div>
-                <div id="project-list" class="space-y-2 flex-grow overflow-y-auto"></div>
-                <div class="space-y-2 flex-shrink-0">
-                    <button id="save-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                        <span>Save Project</span>
-                    </button>
-                    <button id="new-project-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <span>New Project</span>
-                    </button>
-                    <button id="export-projects-btn" class="sidebar-button w-full text-white py-2 rounded-lg flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        <span>Export All</span>
-                    </button>
-                </div>
-            </aside>
+<body class="h-screen w-screen">
+    <div class="w-full h-full flex flex-col">
+        <!-- Header -->
+        <header class="bg-transparent absolute top-0 left-0 w-full p-4 flex items-center justify-between z-20">
+            <button id="sidebar-toggle" class="p-2 rounded-md text-gray-400 hover:bg-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <div class="flex items-center space-x-2">
+                <input type="file" id="import-file" class="hidden">
+                <button id="import-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Import Text</button>
+                <button id="add-node-btn" class="bg-violet-700 text-white px-4 py-2 rounded-lg hover:bg-violet-600 transition-colors text-sm flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Add Node
+                </button>
+            </div>
+        </header>
 
-            <!-- Main Content -->
-            <main class="flex-1 flex flex-col relative">
-                <header class="bg-gray-900/80 backdrop-blur-sm shadow-md p-2 flex items-center justify-between z-20 border-b border-gray-700 relative">
-                    <button id="sidebar-toggle" class="p-2 rounded-md text-gray-400 hover:bg-gray-700 z-50">
-                        <svg id="menu-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                    <div class="flex-1 text-center absolute w-full left-0 pointer-events-none">
-                         <h1 id="project-title" class="text-xl font-semibold text-gray-100 inline-block">Project Mapper</h1>
-                    </div>
-                    <div class="flex items-center space-x-2 z-10">
-                        <button id="help-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Help</button>
-                        <button id="add-node-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm">Add Node</button>
-                        <input type="file" id="import-file" class="hidden">
-                        <button id="import-btn" class="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm">Import Text</button>
-                    </div>
-                </header>
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar w-64 h-full shadow-lg p-4 border-r border-gray-700 flex flex-col flex-shrink-0 sidebar-hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-100">Projects</h2>
+                <button id="sidebar-close-btn" class="p-2 rounded-md text-gray-400 hover:bg-gray-700">
+                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="project-list" class="space-y-2 flex-grow overflow-y-auto"></div>
+            <div class="space-y-2 flex-shrink-0">
+                <button id="save-project-btn" class="w-full text-white py-2 rounded-lg flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    <span>Save Project</span>
+                </button>
+                <button id="new-project-btn" class="w-full text-white py-2 rounded-lg flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>New Project</span>
+                </button>
+            </div>
+        </aside>
 
-                <div id="canvas-container" class="flex-1 overflow-hidden relative">
-                    <div id="canvas" class="absolute top-0 left-0 w-full h-full" style="transform-origin: 0 0;">
-                        <svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none"></svg>
-                    </div>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col relative">
+            <div id="canvas-container" class="flex-1 overflow-hidden relative">
+                <div id="canvas" class="absolute top-0 left-0 w-full h-full" style="transform-origin: 0 0;">
+                    <svg id="connector-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none"></svg>
                 </div>
+            </div>
+        </main>
 
-                <div class="absolute bottom-4 right-4 bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-lg p-2 flex flex-col items-center space-y-2 z-20 border border-gray-700">
-                    <button id="pan-tool" class="p-2 rounded-md text-gray-300 hover:bg-gray-700">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 8.5a1.5 1.5 0 00-1.5-1.5h-2.5a1 1 0 00-1 1v5a1 1 0 001 1h2.5a1.5 1.5 0 001.5-1.5v-3.5zM6.5 7A1.5 1.5 0 018 5.5h1.5a1 1 0 011 1v5a1 1 0 01-1 1H8A1.5 1.5 0 016.5 11V7zM4 5.5A1.5 1.5 0 015.5 4h.5a1 1 0 011 1v6a1 1 0 01-1 1h-.5A1.5 1.5 0 014 10.5V5.5z"></path></svg>
-                    </button>
-                    <button id="select-tool" class="p-2 rounded-md bg-indigo-600 text-white">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.586l4.293-4.293a1 1 0 011.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 011.414-1.414L10 12.586z"/></svg>
-                    </button>
-                    <input type="range" id="zoom-slider" min="0.2" max="2" step="0.1" value="1" class="w-24">
-                </div>
-            </main>
+        <!-- Toolbar -->
+        <div class="absolute bottom-4 left-4 bg-gray-800/80 backdrop-blur-sm shadow-lg rounded-lg p-2 flex flex-col items-center space-y-2 z-20 border border-gray-700">
+            <button id="select-tool" class="p-2 rounded-md bg-violet-700 text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z"></path></svg>
+            </button>
+            <button id="pan-tool" class="p-2 rounded-md text-gray-300 hover:bg-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
         </div>
+        
+        <!-- Footer -->
+        <footer class="absolute bottom-4 text-center w-full pointer-events-none">
+            <span id="save-status" class="bg-gray-800/80 text-gray-400 text-sm px-3 py-1 rounded-full"></span>
+        </footer>
     </div>
 
     <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
@@ -211,23 +163,19 @@
             const canvas = document.getElementById('canvas');
             let connectorSvg = document.getElementById('connector-svg');
             const addNodeBtn = document.getElementById('add-node-btn');
-            const zoomSlider = document.getElementById('zoom-slider');
             const panTool = document.getElementById('pan-tool');
             const selectTool = document.getElementById('select-tool');
             const sidebar = document.getElementById('sidebar');
             const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
             const newProjectBtn = document.getElementById('new-project-btn');
             const saveProjectBtn = document.getElementById('save-project-btn');
             const projectList = document.getElementById('project-list');
             const modalBackdrop = document.getElementById('modal-backdrop');
             const modalContent = document.getElementById('modal-content');
-            const menuIcon = document.getElementById('menu-icon');
-            const closeIcon = document.getElementById('close-icon');
-            const projectTitle = document.getElementById('project-title');
-            const helpBtn = document.getElementById('help-btn');
+            const saveStatus = document.getElementById('save-status');
             const importBtn = document.getElementById('import-btn');
             const importFile = document.getElementById('import-file');
-            const exportProjectsBtn = document.getElementById('export-projects-btn');
 
             let nodes = [];
             let connectors = [];
@@ -242,6 +190,18 @@
             let tool = 'select';
             let activeNodeForContent = null;
             let currentProjectId = null;
+            let isResizing = false;
+            let resizeNode = null;
+            let isDirty = false;
+            let isConnecting = false;
+            let tempLine = null;
+            let fromNode = null;
+
+            function setDirty(state) {
+                isDirty = state;
+                saveStatus.textContent = isDirty ? 'Unsaved Project' : 'Saved';
+                saveStatus.style.display = 'inline-block';
+            }
 
             function showModal(htmlContent) {
                 modalContent.innerHTML = htmlContent;
@@ -266,15 +226,15 @@
             panTool.addEventListener('click', () => {
                 tool = 'pan';
                 canvasContainer.style.cursor = 'grab';
-                panTool.classList.add('bg-indigo-600', 'text-white');
-                selectTool.classList.remove('bg-indigo-600', 'text-white');
+                panTool.classList.add('bg-violet-700', 'text-white');
+                selectTool.classList.remove('bg-violet-700', 'text-white');
             });
 
             selectTool.addEventListener('click', () => {
                 tool = 'select';
                 canvasContainer.style.cursor = 'default';
-                selectTool.classList.add('bg-indigo-600', 'text-white');
-                panTool.classList.remove('bg-indigo-600', 'text-white');
+                selectTool.classList.add('bg-violet-700', 'text-white');
+                panTool.classList.remove('bg-violet-700', 'text-white');
             });
 
             const stopPanning = () => {
@@ -282,33 +242,42 @@
                 if (tool === 'pan') canvasContainer.style.cursor = 'grab';
             };
 
-            canvasContainer.addEventListener('mousedown', (e) => {
-                if (tool === 'pan' || e.button === 1) {
+            function handleInteractionStart(e) {
+                const point = e.type === 'touchstart' ? e.touches[0] : e;
+                if (tool === 'pan' || (e.type === 'mousedown' && e.button === 1)) {
                     isPanning = true;
-                    startPanX = e.clientX - panX;
-                    startPanY = e.clientY - panY;
+                    startPanX = point.clientX - panX;
+                    startPanY = point.clientY - panY;
                     canvasContainer.style.cursor = 'grabbing';
                 }
-            });
-            canvasContainer.addEventListener('mousemove', (e) => {
+            }
+
+            function handleInteractionMove(e) {
+                const point = e.type === 'touchmove' ? e.touches[0] : e;
                 if (isPanning) {
-                    panX = e.clientX - startPanX;
-                    panY = e.clientY - startPanY;
+                    panX = point.clientX - startPanX;
+                    panY = point.clientY - startPanY;
                     updateCanvasTransform();
                 }
+            }
+            
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if (e.target === canvasContainer || e.target === canvas) {
+                    nodes.forEach(n => n.el.classList.remove('selected'));
+                }
+                handleInteractionStart(e);
             });
+            canvasContainer.addEventListener('touchstart', handleInteractionStart);
+            canvasContainer.addEventListener('mousemove', handleInteractionMove);
+            canvasContainer.addEventListener('touchmove', handleInteractionMove);
             canvasContainer.addEventListener('mouseup', stopPanning);
+            canvasContainer.addEventListener('touchend', stopPanning);
             canvasContainer.addEventListener('mouseleave', stopPanning);
 
             function updateCanvasTransform() {
                 canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
             }
             
-            zoomSlider.addEventListener('input', (e) => {
-                scale = parseFloat(e.target.value);
-                updateCanvasTransform();
-            });
-
             canvasContainer.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 const zoomIntensity = 0.1;
@@ -321,100 +290,194 @@
                 panX = mouseX - (mouseX - panX) * (newScale / scale);
                 panY = mouseY - (mouseY - panY) * (newScale / scale);
                 scale = newScale;
-                zoomSlider.value = scale;
                 updateCanvasTransform();
             });
 
             addNodeBtn.addEventListener('click', () => createNode({}));
 
-            function createNode({ id = 'node-' + Date.now(), x = 100, y = 100, title = 'New Node', contentHTML = '', borderColor = '#4b5563' }) {
+            function createNode({ id = 'node-' + Date.now(), x = 100, y = 100, width = 192, height = 'auto', title = 'New Node', contentHTML = '', borderColor = '#4b5563' }) {
                 const nodeEl = document.createElement('div');
                 nodeEl.id = id;
-                nodeEl.className = 'node absolute p-4 shadow-md w-48';
+                nodeEl.className = 'node absolute p-4 shadow-md';
                 nodeEl.style.left = `${x}px`;
                 nodeEl.style.top = `${y}px`;
+                nodeEl.style.width = `${width}px`;
+                if (height !== 'auto') {
+                    nodeEl.style.height = `${height}px`;
+                }
                 nodeEl.style.borderColor = borderColor;
                 
                 nodeEl.innerHTML = `
                     <div contenteditable="true" class="font-semibold mb-2 text-gray-100 title">${title}</div>
                     <div class="text-sm content-area">${contentHTML}</div>
-                    <input type="file" class="hidden file-input" multiple>
-                    <div class="flex justify-between items-center mt-2">
-                        <button class="add-content-btn text-indigo-400 hover:text-indigo-300">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    <div class="node-controls">
+                        <button class="add-content-btn text-gray-400 hover:text-white">
+                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l-1.586-1.586a2 2 0 010-2.828L14 8"></path></svg>
                         </button>
                         <label class="color-picker-label cursor-pointer">
                             <svg class="w-5 h-5 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0010.586 5H8a2 2 0 00-2 2v12z"></path></svg>
                             <input type="color" class="node-color-picker hidden" value="${borderColor}">
                         </label>
-                        <button class="delete-node-btn text-red-400 hover:text-red-300">
+                        <button class="delete-node-btn text-gray-400 hover:text-white">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>
                     <div class="connector-point absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-500 rounded-full border-2 border-gray-800 cursor-pointer hover:bg-indigo-500"></div>
+                    <div class="resize-handle"></div>
                 `;
                 
                 canvas.appendChild(nodeEl);
-                const node = { id, el: nodeEl, x, y, connectors: [], borderColor };
+                const node = { id, el: nodeEl, x, y, width, height, connectors: [], borderColor };
                 nodes.push(node);
                 setupNodeEventListeners(node);
+                setDirty(true);
                 return node;
             }
 
             function setupNodeEventListeners(node) {
                 const nodeEl = node.el;
                 const colorPickerInput = nodeEl.querySelector('.node-color-picker');
+                const colorPickerLabel = nodeEl.querySelector('.color-picker-label');
+                const resizeHandle = nodeEl.querySelector('.resize-handle');
+
+                colorPickerLabel.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    colorPickerInput.click();
+                });
 
                 colorPickerInput.addEventListener('input', (e) => {
-                    const newColor = e.target.value;
-                    node.el.style.borderColor = newColor;
-                    node.borderColor = newColor;
+                    node.el.style.borderColor = e.target.value;
+                });
+                
+                colorPickerInput.addEventListener('change', (e) => {
+                    node.borderColor = e.target.value;
+                    setDirty(true);
                 });
 
-                nodeEl.addEventListener('mousedown', (e) => {
-                    if (tool === 'select' && !e.target.classList.contains('connector-point') && e.target.contentEditable !== 'true') {
+                const startDrag = (e) => {
+                    const point = e.type === 'touchstart' ? e.touches[0] : e;
+                    if (tool === 'select' && !e.target.closest('.node-controls') && !e.target.classList.contains('resize-handle') && e.target.contentEditable !== 'true') {
                         activeNode = node;
-                        offsetX = e.clientX - node.x * scale - panX;
-                        offsetY = e.clientY - node.y * scale - panY;
+                        offsetX = point.clientX - node.x * scale - panX;
+                        offsetY = point.clientY - node.y * scale - panY;
                         nodeEl.style.cursor = 'grabbing';
+                        
+                        nodes.forEach(n => n.el.classList.remove('selected'));
                         nodeEl.classList.add('selected');
                     }
-                });
-                document.addEventListener('mousemove', (e) => {
+                };
+
+                const startResize = (e) => {
+                    e.stopPropagation();
+                    isResizing = true;
+                    resizeNode = node;
+                };
+
+                nodeEl.addEventListener('mousedown', startDrag);
+                nodeEl.addEventListener('touchstart', startDrag);
+                resizeHandle.addEventListener('mousedown', startResize);
+                resizeHandle.addEventListener('touchstart', startResize);
+
+                const stopDragAndResize = () => {
+                    if (activeNode || isResizing) setDirty(true);
                     if (activeNode) {
-                        activeNode.x = (e.clientX - offsetX - panX) / scale;
-                        activeNode.y = (e.clientY - offsetY - panY) / scale;
+                        activeNode.el.style.cursor = 'grab';
+                        activeNode = null;
+                    }
+                    isResizing = false;
+                    resizeNode = null;
+                };
+
+                document.addEventListener('mouseup', stopDragAndResize);
+                document.addEventListener('touchend', stopDragAndResize);
+                
+                const handleMove = (e) => {
+                    const point = e.type === 'touchmove' ? e.touches[0] : e;
+                    if (activeNode) {
+                        activeNode.x = (point.clientX - offsetX - panX) / scale;
+                        activeNode.y = (point.clientY - offsetY - panY) / scale;
                         activeNode.el.style.left = `${activeNode.x}px`;
                         activeNode.el.style.top = `${activeNode.y}px`;
                         updateConnectorsForNode(activeNode);
                     }
-                });
-                document.addEventListener('mouseup', () => {
-                    if (activeNode) {
-                        activeNode.el.style.cursor = 'grab';
-                        activeNode.el.classList.remove('selected');
-                        activeNode = null;
+                    if (isResizing && resizeNode) {
+                        const newWidth = (point.clientX - resizeNode.x * scale - panX) / scale;
+                        const newHeight = (point.clientY - resizeNode.y * scale - panY) / scale;
+                        resizeNode.el.style.width = `${Math.max(150, newWidth)}px`;
+                        resizeNode.el.style.height = `${Math.max(60, newHeight)}px`;
+                        resizeNode.width = Math.max(150, newWidth);
+                        resizeNode.height = Math.max(60, newHeight);
+                        updateConnectorsForNode(resizeNode);
                     }
-                });
+                };
+
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('touchmove', (e) => {
+                    if (activeNode || isResizing) {
+                        e.preventDefault();
+                        handleMove(e);
+                    }
+                }, { passive: false });
+
                 nodeEl.querySelector('.delete-node-btn').addEventListener('click', () => deleteNode(node));
-                nodeEl.querySelector('.connector-point').addEventListener('mousedown', (e) => {
+                
+                const connectorPoint = nodeEl.querySelector('.connector-point');
+
+                const startConnection = (e) => {
                     e.stopPropagation();
                     if (tool === 'select') {
-                        if (!selectedNode1) {
-                            selectedNode1 = node;
-                            node.el.classList.add('selected');
-                        } else if (selectedNode1 !== node) {
-                            createConnector(selectedNode1, node);
-                            selectedNode1.el.classList.remove('selected');
-                            selectedNode1 = null;
-                        }
+                        isConnecting = true;
+                        fromNode = node;
+                        tempLine = document.createElementNS("http://www.w3.org/2000/svg", 'path');
+                        tempLine.setAttribute('class', 'connector');
+                        tempLine.style.stroke = 'var(--glow-color)';
+                        connectorSvg.appendChild(tempLine);
+                        updateTempLine(e);
+                        document.addEventListener('mousemove', updateTempLine);
+                        document.addEventListener('touchmove', updateTempLine);
+                        document.addEventListener('mouseup', endConnection);
+                        document.addEventListener('touchend', endConnection);
                     }
-                });
+                };
+
+                connectorPoint.addEventListener('mousedown', startConnection);
+                connectorPoint.addEventListener('touchstart', startConnection);
+
                 nodeEl.querySelector('.add-content-btn').addEventListener('click', () => {
                     activeNodeForContent = node;
                     openAddContentModal();
                 });
-                nodeEl.querySelector('.file-input').addEventListener('change', (e) => handleFileUpload(e, node));
+            }
+
+            function updateTempLine(e) {
+                if (!isConnecting) return;
+                const point = e.type === 'touchmove' ? e.touches[0] : e;
+                const startPoint = getConnectorPoint(fromNode, 'right');
+                const endPoint = {
+                    x: (point.clientX - panX) / scale,
+                    y: (point.clientY - panY) / scale
+                };
+                const controlPointOffset = Math.max(50, Math.abs(endPoint.x - startPoint.x) * 0.3);
+                tempLine.setAttribute('d', `M ${startPoint.x} ${startPoint.y} C ${startPoint.x + controlPointOffset} ${startPoint.y}, ${endPoint.x - controlPointOffset} ${endPoint.y}, ${endPoint.x} ${endPoint.y}`);
+            }
+
+            function endConnection(e) {
+                if (!isConnecting) return;
+                isConnecting = false;
+                tempLine.remove();
+                
+                const toNodeEl = e.target.closest('.node');
+                if (toNodeEl && toNodeEl.id !== fromNode.id) {
+                    const toNode = nodes.find(n => n.id === toNodeEl.id);
+                    if (toNode) {
+                        createConnector(fromNode, toNode);
+                    }
+                }
+
+                document.removeEventListener('mousemove', updateTempLine);
+                document.removeEventListener('touchmove', updateTempLine);
+                document.removeEventListener('mouseup', endConnection);
+                document.removeEventListener('touchend', endConnection);
             }
 
             function deleteNode(nodeToDelete) {
@@ -422,6 +485,7 @@
                 connectorsToRemove.forEach(c => deleteConnector(c));
                 nodes = nodes.filter(n => n.id !== nodeToDelete.id);
                 nodeToDelete.el.remove();
+                setDirty(true);
             }
 
             function handleFileUpload(event, node) {
@@ -448,6 +512,7 @@
                             contentEl.target = '_blank';
                         }
                         contentArea.appendChild(contentEl);
+                        setDirty(true);
                     };
                     reader.readAsDataURL(file);
                 }
@@ -461,6 +526,7 @@
                 fromNode.connectors.push(connector);
                 toNode.connectors.push(connector);
                 drawConnectors();
+                setDirty(true);
             }
             
             function deleteConnector(connectorToDelete) {
@@ -468,6 +534,7 @@
                 if (connectorToDelete.from) connectorToDelete.from.connectors = connectorToDelete.from.connectors.filter(c => c.id !== connectorToDelete.id);
                 if (connectorToDelete.to) connectorToDelete.to.connectors = connectorToDelete.to.connectors.filter(c => c.id !== connectorToDelete.id);
                 drawConnectors();
+                setDirty(true);
             }
 
             function drawConnectors() {
@@ -482,26 +549,9 @@
                     path.setAttribute('d', `M ${p1.x} ${p1.y} C ${p1.x + controlPointOffset} ${p1.y}, ${p2.x - controlPointOffset} ${p2.y}, ${p2.x} ${p2.y}`);
                     path.classList.add('connector');
                     
-                    const trashIconWrapper = document.createElementNS(svgNS, 'foreignObject');
-                    const midX = (p1.x + p2.x) / 2;
-                    const midY = (p1.y + p2.y) / 2;
-                    trashIconWrapper.setAttribute('x', midX - 12);
-                    trashIconWrapper.setAttribute('y', midY - 12);
-                    trashIconWrapper.setAttribute('width', 24);
-                    trashIconWrapper.setAttribute('height', 24);
-                    trashIconWrapper.style.pointerEvents = 'all';
-                    
-                    const trashButtonContainer = document.createElement('div');
-                    trashButtonContainer.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-                    trashButtonContainer.innerHTML = `<button class="trash-icon bg-gray-700 p-1 rounded-full shadow-md hover:bg-red-500 items-center justify-center"><svg class="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></button>`;
-                    trashButtonContainer.onclick = () => deleteConnector(c);
-                    
-                    trashIconWrapper.appendChild(trashButtonContainer);
-                    
                     const g = document.createElementNS(svgNS, 'g');
                     g.classList.add('connector-wrapper');
                     g.appendChild(path);
-                    g.appendChild(trashIconWrapper);
                     connectorSvg.appendChild(g);
                 });
             }
@@ -519,7 +569,6 @@
             newProjectBtn.addEventListener('click', () => {
                 clearCanvas();
                 currentProjectId = 'project-' + Date.now();
-                projectTitle.textContent = "Untitled Project";
                 createNode({ x: 200, y: 150, title: "Start Here" });
                 autoSave();
             });
@@ -534,7 +583,7 @@
                     <div class="space-y-4">
                         <div>
                             <label for="project-name-input" class="block text-sm font-medium text-gray-300 mb-1">Project Name:</label>
-                            <input type="text" id="project-name-input" class="w-full bg-gray-700 text-white rounded-md p-2" value="${projectTitle.textContent}">
+                            <input type="text" id="project-name-input" class="w-full bg-gray-700 text-white rounded-md p-2" value="My Project">
                         </div>
                         <div class="flex justify-end space-x-4">
                             <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors">Cancel</button>
@@ -548,7 +597,6 @@
                 document.getElementById('modal-save-btn').onclick = () => {
                     const projectName = document.getElementById('project-name-input').value.trim();
                     if (projectName) {
-                        projectTitle.textContent = projectName;
                         saveProjectToStorage(projectName);
                         closeModal();
                         showAlert('Project saved!');
@@ -567,6 +615,8 @@
                         id: node.id,
                         x: node.x,
                         y: node.y,
+                        width: node.el.offsetWidth,
+                        height: node.el.offsetHeight,
                         title: node.el.querySelector('.title').innerText,
                         contentHTML: node.el.querySelector('.content-area').innerHTML,
                         borderColor: node.borderColor
@@ -582,11 +632,11 @@
                 }
                 localStorage.setItem('projectMapperProjects', JSON.stringify(projects));
                 renderProjectList();
+                setDirty(false);
             }
 
             function loadProject(projectData) {
                 clearCanvas();
-                projectTitle.textContent = projectData.name || 'Project Mapper';
                 currentProjectId = projectData.id;
                 projectData.nodes.forEach(nodeData => createNode(nodeData));
                 projectData.connectors.forEach(connectorData => {
@@ -594,6 +644,7 @@
                     const toNode = nodes.find(n => n.id === connectorData.to);
                     if (fromNode && toNode) createConnector(fromNode, toNode);
                 });
+                setDirty(false);
             }
 
             function clearCanvas() {
@@ -605,9 +656,9 @@
 
             sidebarToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('sidebar-hidden');
-                sidebarToggle.classList.toggle('open');
-                menuIcon.classList.toggle('hidden');
-                closeIcon.classList.toggle('hidden');
+            });
+            sidebarCloseBtn.addEventListener('click', () => {
+                sidebar.classList.add('sidebar-hidden');
             });
 
             importBtn.addEventListener('click', () => importFile.click());
@@ -637,22 +688,6 @@
                 });
             }
             
-            helpBtn.addEventListener('click', () => {
-                const helpText = `
-                    <h3 class="text-lg font-bold mb-4 text-white">How to Use Project Mapper</h3>
-                    <ul class="list-disc list-inside space-y-2 text-left">
-                        <li><b>Add Nodes:</b> Click the "Add Node" button to create a new node on the canvas.</li>
-                        <li><b>Move Nodes:</b> Click and drag any node to reposition it.</li>
-                        <li><b>Edit Content:</b> Click on the title or content area of a node to edit the text.</li>
-                        <li><b>Connect Nodes:</b> Click the small circle on the right side of a node, then click on another node to create a connection.</li>
-                        <li><b>Pan the Canvas:</b> Click the hand icon in the toolbar, then click and drag the canvas to move your view.</li>
-                        <li><b>Zoom:</b> Use the slider in the toolbar or your mouse wheel to zoom in and out.</li>
-                        <li><b>Save/Load:</b> Use the buttons in the sidebar to save your project to the list or load from it.</li>
-                    </ul>
-                `;
-                showAlert(helpText);
-            });
-
             function openAddContentModal() {
                 const modalHtml = `
                     <h3 class="text-lg font-bold mb-4 text-white">Add Content</h3>
@@ -673,7 +708,11 @@
 
                 document.getElementById('modal-upload-btn').onclick = () => {
                     if (activeNodeForContent) {
-                        activeNodeForContent.el.querySelector('.file-input').click();
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.multiple = true;
+                        fileInput.onchange = (e) => handleFileUpload(e, activeNodeForContent);
+                        fileInput.click();
                     }
                     closeModal();
                 };
@@ -689,6 +728,7 @@
                         linkEl.className = 'block mt-2 text-sm text-blue-400 hover:underline';
                         linkEl.target = '_blank';
                         contentArea.appendChild(linkEl);
+                        setDirty(true);
                     }
                     closeModal();
                 };
@@ -725,14 +765,16 @@
             }
 
             function autoSave() {
-                if (!currentProjectId) return;
+                if (!currentProjectId || !isDirty) return;
                 const projectData = {
                     id: currentProjectId,
-                    name: projectTitle.textContent,
+                    name: "Auto Save",
                     nodes: nodes.map(node => ({
                         id: node.id,
                         x: node.x,
                         y: node.y,
+                        width: node.el.offsetWidth,
+                        height: node.el.offsetHeight,
                         title: node.el.querySelector('.title').innerText,
                         contentHTML: node.el.querySelector('.content-area').innerHTML,
                         borderColor: node.borderColor
@@ -740,22 +782,8 @@
                     connectors: connectors.map(c => ({ from: c.from.id, to: c.to.id }))
                 };
                 localStorage.setItem('autoSave', JSON.stringify(projectData));
+                setDirty(false);
             }
-
-            exportProjectsBtn.addEventListener('click', () => {
-                const projects = localStorage.getItem('projectMapperProjects');
-                if (projects) {
-                    const blob = new Blob([projects], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'project-mapper-backup.json';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                } else {
-                    showAlert('No projects to export.');
-                }
-            });
 
             function init() {
                 renderProjectList();
@@ -765,7 +793,6 @@
                 } else {
                     currentProjectId = 'project-' + Date.now();
                     createNode({ x: 200, y: 150, title: "Welcome to Project Mapper!" });
-                    createNode({ x: 500, y: 250, title: "You can now save & load!" });
                 }
                 setInterval(autoSave, 5000);
             }
