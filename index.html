@@ -193,9 +193,6 @@
             let isResizing = false;
             let resizeNode = null;
             let isDirty = false;
-            let isConnecting = false;
-            let tempLine = null;
-            let fromNode = null;
 
             function setDirty(state) {
                 isDirty = state;
@@ -421,63 +418,24 @@
 
                 nodeEl.querySelector('.delete-node-btn').addEventListener('click', () => deleteNode(node));
                 
-                const connectorPoint = nodeEl.querySelector('.connector-point');
-
-                const startConnection = (e) => {
+                nodeEl.querySelector('.connector-point').addEventListener('mousedown', (e) => {
                     e.stopPropagation();
                     if (tool === 'select') {
-                        isConnecting = true;
-                        fromNode = node;
-                        tempLine = document.createElementNS("http://www.w3.org/2000/svg", 'path');
-                        tempLine.setAttribute('class', 'connector');
-                        tempLine.style.stroke = 'var(--glow-color)';
-                        connectorSvg.appendChild(tempLine);
-                        updateTempLine(e);
-                        document.addEventListener('mousemove', updateTempLine);
-                        document.addEventListener('touchmove', updateTempLine);
-                        document.addEventListener('mouseup', endConnection);
-                        document.addEventListener('touchend', endConnection);
+                        if (!selectedNode1) {
+                            selectedNode1 = node;
+                            nodeEl.classList.add('selected');
+                        } else if (selectedNode1 !== node) {
+                            createConnector(selectedNode1, node);
+                            selectedNode1.el.classList.remove('selected');
+                            selectedNode1 = null;
+                        }
                     }
-                };
-
-                connectorPoint.addEventListener('mousedown', startConnection);
-                connectorPoint.addEventListener('touchstart', startConnection);
+                });
 
                 nodeEl.querySelector('.add-content-btn').addEventListener('click', () => {
                     activeNodeForContent = node;
                     openAddContentModal();
                 });
-            }
-
-            function updateTempLine(e) {
-                if (!isConnecting) return;
-                const point = e.type === 'touchmove' ? e.touches[0] : e;
-                const startPoint = getConnectorPoint(fromNode, 'right');
-                const endPoint = {
-                    x: (point.clientX - panX) / scale,
-                    y: (point.clientY - panY) / scale
-                };
-                const controlPointOffset = Math.max(50, Math.abs(endPoint.x - startPoint.x) * 0.3);
-                tempLine.setAttribute('d', `M ${startPoint.x} ${startPoint.y} C ${startPoint.x + controlPointOffset} ${startPoint.y}, ${endPoint.x - controlPointOffset} ${endPoint.y}, ${endPoint.x} ${endPoint.y}`);
-            }
-
-            function endConnection(e) {
-                if (!isConnecting) return;
-                isConnecting = false;
-                tempLine.remove();
-                
-                const toNodeEl = e.target.closest('.node');
-                if (toNodeEl && toNodeEl.id !== fromNode.id) {
-                    const toNode = nodes.find(n => n.id === toNodeEl.id);
-                    if (toNode) {
-                        createConnector(fromNode, toNode);
-                    }
-                }
-
-                document.removeEventListener('mousemove', updateTempLine);
-                document.removeEventListener('touchmove', updateTempLine);
-                document.removeEventListener('mouseup', endConnection);
-                document.removeEventListener('touchend', endConnection);
             }
 
             function deleteNode(nodeToDelete) {
