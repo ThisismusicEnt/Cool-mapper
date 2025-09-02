@@ -1,0 +1,17 @@
+{
+  "name": "cool-mapper",
+  "version": "1.0.0",
+  "description": "Interactive project mapping tool",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -c-1 .",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
