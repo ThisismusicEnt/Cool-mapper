@@ -6,6 +6,8 @@
     <title>Project Mapper</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/5+hHgAHggJ/PJFe4AAAAABJRU5ErkJggg==">
     <style>
         :root {
             --primary-color: #6D28D9; /* Violet 700 */
@@ -800,6 +802,11 @@
 
             init();
         });
+    </script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(console.error);
+    }
     </script>
 </body>
 </html>
